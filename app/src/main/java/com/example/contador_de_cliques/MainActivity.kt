@@ -1,5 +1,6 @@
 package com.example.contador_de_cliques
 
+import DataStoreManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -10,21 +11,30 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Alignment
 import com.example.contador_de_cliques.ui.theme.Contador_de_cliquesTheme
+import java.text.SimpleDateFormat
+import java.util.*
+import kotlinx.coroutines.launch
+
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val datastore = DataStoreManager(applicationContext)
         setContent {
             Contador_de_cliquesTheme {
-                ContadorDeCliques()
+                ContadorDeCliques(datastore)
             }
         }
     }
 }
 
 @Composable
-fun ContadorDeCliques() {
-    var contador by remember { mutableStateOf(0) }
+fun ContadorDeCliques(dataStore: DataStoreManager) {
+    val scope = rememberCoroutineScope()
+    val contador by dataStore.contador.collectAsState(initial = 0)
+    val dataUltimoClique by dataStore.dataUltimoClique.collectAsState(initial = "Nunca")
 
     Column(
         modifier = Modifier
@@ -33,32 +43,30 @@ fun ContadorDeCliques() {
         verticalArrangement = Arrangement.Center
     ) {
         Text(text = "Você clicou $contador vezes")
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(16.dp), // Espaço entre os botões
-            verticalAlignment = Alignment.CenterVertically // Alinha os botões verticalmente no centro
-        ) {
+        Text(text = "Último clique: $dataUltimoClique", style = MaterialTheme.typography.bodySmall)
+
+        Row {
             Button(
-                onClick = { contador++ },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                onClick = {
+                    val dataAtual = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())
+                    scope.launch {
+                        dataStore.salvarContador(contador + 1)
+                        dataStore.salvarDataHora(dataAtual)
+                    }
+                },
+                modifier = Modifier.padding(end = 8.dp)
             ) {
-                Text(text = "Clique aqui")
+                Text("Clique aqui")
             }
 
-            Spacer(modifier = Modifier.height(16.dp)) // Espaço entre os botões
-
-            // Botão para resetar o contador
-            Button(
-                onClick = { contador = 0 },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondary,
-                    contentColor = MaterialTheme.colorScheme.onSecondary
-                )
-            ) {
-                Text(text = "Resetar contagem")
+            Button(onClick = {
+                scope.launch {
+                    dataStore.salvarContador(0)
+                }
+            }) {
+                Text("Resetar")
             }
         }
     }
 }
+
